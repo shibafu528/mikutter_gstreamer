@@ -6,51 +6,44 @@ require_relative 'gstfix'
 # Of course, "M" is abbr for "Miku".
 
 class Pipeline
-    def initialize
+    def initialize(slug)
+        @slug = slug
+
+        @player = Gst::ElementFactory.make("playbin")
+        @player.set_property("flags", 2)
+        bus = @player.bus
+        bus.add_watch do |bus, message|
+            case message.type
+            when Gst::MessageType::EOS
+                STDERR.puts "#{@slug}|EOS"
+                @player.stop
+            when Gst::MessageType::ERROR
+                error, debug = message.parse_error
+                STDOUT.puts "#{@slug}|Debugging info: #{debug || 'none'}"
+                STDOUT.puts "#{@slug}|Error: #{error.message}"
+                @player.stop
+            end
+            true
+        end
+
         @queue = Queue.new
         @thread = Thread.start do
+            STDERR.puts("#{@slug}|Created Pipeline")
             while filename = @queue.pop
                 begin
-                    audio = Gst::Bin.new("audiobin")
-                    conv = Gst::ElementFactory.make("audioconvert")
-                    audiopad = conv.get_static_pad("sink")
-                    sink = Gst::ElementFactory.make("autoaudiosink")
-                    audio << conv << sink
-                    conv >> sink
-                    audio.add_pad(Gst::GhostPad.new("sink", audiopad))
-
-                    @pipeline = Gst::Pipeline.new("pipeline")
-                    src = Gst::ElementFactory.make("filesrc")
-                    src.location = filename
-                    decoder = Gst::ElementFactory.make("decodebin")
-                    decoder.signal_connect("pad-added") do |decoder, pad|
-                        audiopad = audio.get_static_pad("sink")
-                        pad.link(audiopad)
+                    if Gst.valid_uri?(filename) then
+                        @player.uri = filename
+                    else
+                        @player.uri = Gst.filename_to_uri(filename)
                     end
-
-                    @pipeline << src << decoder << audio
-                    src >> decoder
-
-                    @pipeline.play
+                    @player.play
                     begin
-                        running = true
-                        bus = @pipeline.bus
-                        
-                        while running
-                            message = bus.poll(Gst::MessageType::ANY, Gst::CLOCK_TIME_NONE)
-                            raise "[Gst] message nil" if message.nil?
-                            
-                            case message.type
-                            when Gst::MessageType::EOS then
-                                running = false
-                            when Gst::MessageType::ERROR then
-                                STDERR.puts("[Gst]再生エラー: #{message.parse}")
-                                running = false
-                            end
+                        STDERR.puts("#{@slug}|Playing #{filename}")
+                        while @player.get_state(Gst::CLOCK_TIME_NONE).include?(Gst::State::PLAYING)
                         end
                     ensure
-                        @pipeline.stop
-                        @pipeline = nil
+                        STDERR.puts("#{@slug}|Break")
+                        @player.stop unless @player.get_state(Gst::CLOCK_TIME_NONE).include?(Gst::State::NULL)
                     end
                 rescue => e
                     STDERR.puts(e)
@@ -65,13 +58,11 @@ class Pipeline
 
     def stop
         @queue.clear
-        unless @pipeline.nil? then
-            @pipeline.stop
-            @pipeline = nil
-        end
+        @player.stop
     end
 
     def kill
+        stop
         @thread.kill unless @thread.nil?
     end
 end
@@ -79,8 +70,12 @@ end
 $pipelines = {}
 
 def play(filename, channel = "default")
-    $pipelines[channel] = Pipeline.new unless $pipelines.member?(channel)
-    $pipelines[channel].play(filename)
+    if File.exist?(filename) then
+        $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
+        $pipelines[channel].play(filename)
+    else
+        STDERR.puts("file not found: #{filename}")
+    end
 end
 
 def stop(channel = "default")
@@ -93,24 +88,41 @@ def stop_all
     end
 end
 
+def kill(channel = "default")
+    if $pipelines.member?(channel) then
+        $pipelines[channel].kill
+        $pipelines.delete(channel)
+    end
+end
+
+def kill_all
+    $pipelines.each_key do |key|
+        kill(key)
+    end
+end
+
 def status
-    p $pipelines
+    puts "status|#{$pipelines}"
+    puts "status|response-end"
 end
 
 def s; status end
 
+STDERR.puts("sys|Welcome to MStreamer")
+
 while line = gets
-    break if line.chomp == "quit"
-    next if line.chomp.empty?
+    line.chomp!
+    break if line.strip == "quit" or line.strip == "q"
+    next if line.empty?
     cmds = line.split
     begin
         send(cmds[0], *(cmds.slice(1..-1)))
     rescue NoMethodError => e
-        STDERR.puts("command not found: #{cmds[0]}")
+        STDERR.puts("command not found: #{cmds[0]} :: #{e}")
+    rescue ArgumentError => e
+        STDERR.puts("invalid arguments: #{line}")
     end
 end
 
-stop_all
-$pipelines.each do |pipeline|
-    pipeline.kill
-end
+STDERR.puts("sys|Quitting MStreamer")
+kill_all
