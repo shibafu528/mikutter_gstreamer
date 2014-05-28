@@ -1,7 +1,7 @@
 ---
 slug: :mikutter_gstreamer
 depends:
-  mikutter: 0.2.2.1537
+  mikutter: 0.2.2.1476
   plugin: [sound]
 version: '1.0'
 author: shibafu528
