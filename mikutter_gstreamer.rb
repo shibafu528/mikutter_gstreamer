@@ -17,29 +17,7 @@ class MStreamer
                 i.to_s
             end
         }.join(" ")
-
-        p method
         @mst.puts("#{method} #{formatted_args}") unless block_given?
-
-        if block_given? then
-            t = Thread.new do 
-                so = @stdout_callback
-                wait = true
-                results = []
-                @stdout_callback = Proc.new do |tag, message|
-                    if message == "response-end" then
-                        wait = false
-                    else
-                        results << message
-                    end
-                end
-                while wait
-                end
-                @stdout_callback = so
-            end
-            @mst.puts("#{method} #{formatted_args}")
-            t.join
-        end
     end
 
     def set_stdout(&proc)
