@@ -87,6 +87,10 @@ Plugin.create(:mikutter_gstreamer) do
         mst.play(filename, channel)
     end
 
+    on_gst_enq do |filename, channel = :default|
+        mst.enq(filename, channel)
+    end
+
     on_gst_stop do |channel = :default|
         mst.stop(channel)
     end

@@ -26,7 +26,7 @@ class Pipeline
                     @player.play
                     begin
                         STDERR.puts("#{@slug}|Playing #{filename}")
-                        while true
+                        while @player.get_state(Gst::CLOCK_TIME_NONE).include?(Gst::State::PLAYING)
                             message = @bus.poll(Gst::MessageType::ANY, Gst::CLOCK_TIME_NONE)
                             case message.type
                             when Gst::MessageType::EOS
@@ -51,11 +51,20 @@ class Pipeline
     end
 
     def play(filename)
+        stop
+        @queue.push(filename)
+    end
+
+    def enq(filename)
         @queue.push(filename)
     end
 
     def stop
         @queue.clear
+        @player.stop
+    end
+
+    def next
         @player.stop
     end
 
@@ -74,6 +83,19 @@ def play(filename, channel = "default")
     else
         STDERR.puts("file not found: #{filename}")
     end
+end
+
+def enq(filename, channel = "default")
+    if File.exist?(filename) then
+        $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
+        $pipelines[channel].enq(filename)
+    else
+        STDERR.puts("file not found: #{filename}")
+    end
+end
+
+def next(channel = "default")
+    $pipelines[channel].next if $pipelines.member?(channel)
 end
 
 def stop(channel = "default")
