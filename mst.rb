@@ -11,20 +11,7 @@ class Pipeline
 
         @player = Gst::ElementFactory.make("playbin")
         @player.set_property("flags", 2)
-        bus = @player.bus
-        bus.add_watch do |bus, message|
-            case message.type
-            when Gst::MessageType::EOS
-                STDERR.puts "#{@slug}|EOS"
-                @player.stop
-            when Gst::MessageType::ERROR
-                error, debug = message.parse_error
-                STDOUT.puts "#{@slug}|Debugging info: #{debug || 'none'}"
-                STDOUT.puts "#{@slug}|Error: #{error.message}"
-                @player.stop
-            end
-            true
-        end
+        @bus = @player.bus
 
         @queue = Queue.new
         @thread = Thread.start do
@@ -39,7 +26,18 @@ class Pipeline
                     @player.play
                     begin
                         STDERR.puts("#{@slug}|Playing #{filename}")
-                        while @player.get_state(Gst::CLOCK_TIME_NONE).include?(Gst::State::PLAYING)
+                        while true
+                            message = @bus.poll(Gst::MessageType::ANY, Gst::CLOCK_TIME_NONE)
+                            case message.type
+                            when Gst::MessageType::EOS
+                                STDERR.puts "#{@slug}|EOS"
+                                break
+                            when Gst::MessageType::ERROR
+                                error, debug = message.parse_error
+                                STDOUT.puts "#{@slug}|Debugging info: #{debug || 'none'}"
+                                STDOUT.puts "#{@slug}|Error: #{error.message}"
+                                break
+                            end
                         end
                     ensure
                         STDERR.puts("#{@slug}|Break")
