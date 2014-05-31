@@ -74,11 +74,35 @@ class Pipeline
     end
 end
 
+PipeObj = Struct.new(:command, :args)
+
+class PipeProcess
+    def initialize(slug)
+        read, @write = IO.pipe
+        Marshal.dump(slug, @write)
+        @pid = fork do
+            slug = Marshal.load(read)
+            pipeline = Pipeline.new(slug)
+            while obj = Marshal.load(read)
+                break if obj.command == "kill"
+                pipeline.send(obj.command, *obj.args)
+            end
+            pipeline.kill
+            read.close
+            @write.close
+        end
+    end
+
+    def method_missing(method, *params)
+        Marshal.dump(PipeObj.new(method, params), @write)
+    end
+end
+
 $pipelines = {}
 
 def play(filename, channel = "default")
     if filename.start_with?("http") or File.exist?(filename) then
-        $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
+        $pipelines[channel] = PipeProcess.new(channel) unless $pipelines.member?(channel)
         $pipelines[channel].play(filename)
     else
         STDERR.puts("sys|file not found: #{filename}")
@@ -87,7 +111,7 @@ end
 
 def enq(filename, channel = "default")
     if filename.start_with?("http") or File.exist?(filename) then
-        $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
+        $pipelines[channel] = PipeProcess.new(channel) unless $pipelines.member?(channel)
         $pipelines[channel].enq(filename)
     else
         STDERR.puts("sys|file not found: #{filename}")
@@ -120,13 +144,6 @@ def kill_all
         kill(key)
     end
 end
-
-def status
-    puts "status|#{$pipelines}"
-    puts "status|response-end"
-end
-
-def s; status end
 
 STDERR.puts("sys|Welcome to MStreamer")
 
