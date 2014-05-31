@@ -77,7 +77,7 @@ end
 $pipelines = {}
 
 def play(filename, channel = "default")
-    if File.exist?(filename) then
+    if filename.start_with?("http") or File.exist?(filename) then
         $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
         $pipelines[channel].play(filename)
     else
@@ -86,7 +86,7 @@ def play(filename, channel = "default")
 end
 
 def enq(filename, channel = "default")
-    if File.exist?(filename) then
+    if filename.start_with?("http") or File.exist?(filename) then
         $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
         $pipelines[channel].enq(filename)
     else
