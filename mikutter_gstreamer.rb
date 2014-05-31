@@ -17,7 +17,7 @@ class MStreamer
                 i.to_s
             end
         }.join(" ")
-        @mst.puts("#{method} #{formatted_args}") unless block_given?
+        @mst.puts("#{method} #{formatted_args}")
     end
 
     def set_stdout(&proc)
@@ -49,16 +49,18 @@ end
 Plugin.create(:mikutter_gstreamer) do
     mst = MStreamer.new
     
-    mst.set_stdout do |tag, message|
-        info "[MST:#{tag}] #{message}"
-    end
-    
     mst.set_stderr do |tag, message|
-        info "[MST:e:#{tag}] #{message}"
+        notice "[MST:e:#{tag}] #{message}"
+        Plugin.call(:gst_stderr, tag, message)
     end
 
     defsound :gstreamer, "GStreamer" do |filename|
         mst.play(filename, :sound)
+    end
+
+    on_gst_sample_play do |channel = :sound|
+        filename = UserConfig[:notify_sound_favorited]
+        mst.play(filename, channel) if !filename.nil? and File.exist?(filename)
     end
 
     on_gst_play do |filename, channel = :default|

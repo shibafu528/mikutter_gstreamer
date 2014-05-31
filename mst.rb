@@ -44,7 +44,7 @@ class Pipeline
                         @player.stop unless @player.get_state(Gst::CLOCK_TIME_NONE).include?(Gst::State::NULL)
                     end
                 rescue => e
-                    STDERR.puts(e)
+                    STDERR.puts("#{@slug}|#{e}")
                 end
             end
         end
@@ -81,7 +81,7 @@ def play(filename, channel = "default")
         $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
         $pipelines[channel].play(filename)
     else
-        STDERR.puts("file not found: #{filename}")
+        STDERR.puts("sys|file not found: #{filename}")
     end
 end
 
@@ -90,7 +90,7 @@ def enq(filename, channel = "default")
         $pipelines[channel] = Pipeline.new(channel) unless $pipelines.member?(channel)
         $pipelines[channel].enq(filename)
     else
-        STDERR.puts("file not found: #{filename}")
+        STDERR.puts("sys|file not found: #{filename}")
     end
 end
 
@@ -138,9 +138,9 @@ while line = gets
     begin
         send(cmds[0], *(cmds.slice(1..-1)))
     rescue NoMethodError => e
-        STDERR.puts("command not found: #{cmds[0]} :: #{e}")
+        STDERR.puts("sys|command not found: #{cmds[0]} :: #{e}")
     rescue ArgumentError => e
-        STDERR.puts("invalid arguments: #{line}")
+        STDERR.puts("sys|invalid arguments: #{line}")
     end
 end
 
