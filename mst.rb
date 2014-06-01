@@ -11,6 +11,7 @@ class Pipeline
 
         @player = Gst::ElementFactory.make("playbin")
         @player.set_property("flags", 2)
+        volume(1.0)
         @bus = @player.bus
 
         @queue = Queue.new
@@ -66,6 +67,10 @@ class Pipeline
 
     def next
         @player.stop
+    end
+
+    def volume(vol)
+        @player.set_property("volume", vol)
     end
 
     def kill
@@ -132,6 +137,11 @@ def stop_all
     $pipelines.each_key do |key|
         stop(key)
     end
+end
+
+def volume(vol, channel = "default")
+    vol = vol.to_f / 100
+    $pipelines[channel].volume(vol) if $pipelines.member?(channel)
 end
 
 def kill(channel = "default")
