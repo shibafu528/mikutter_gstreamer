@@ -84,13 +84,15 @@ class PipeProcess
             slug = Marshal.load(read)
             pipeline = Pipeline.new(slug)
             while obj = Marshal.load(read)
-                break if obj.command == "kill"
+                break if obj.command.to_s == "kill"
                 pipeline.send(obj.command, *obj.args)
             end
             pipeline.kill
+            STDERR.puts("#{slug}|Dispose")
             read.close
             @write.close
         end
+        Process.detach(@pid)
     end
 
     def method_missing(method, *params)
