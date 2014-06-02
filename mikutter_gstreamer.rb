@@ -48,6 +48,11 @@ end
 
 Plugin.create(:mikutter_gstreamer) do
     mst = MStreamer.new
+
+    mst.set_stdout do |tag, message|
+        notice "[MST:#{tag}] #{message}"
+        Plugin.call(:gst_stdout, tag, message)
+    end
     
     mst.set_stderr do |tag, message|
         notice "[MST:e:#{tag}] #{message}"
@@ -73,6 +78,10 @@ Plugin.create(:mikutter_gstreamer) do
 
     on_gst_stop do |channel = :default|
         mst.stop(channel)
+    end
+
+    on_gst_set_volume do |volume, channel = :default|
+        mst.set_volume(volume, channel)
     end
 
     at_exit {

@@ -11,7 +11,7 @@ class Pipeline
 
         @player = Gst::ElementFactory.make("playbin")
         @player.set_property("flags", 2)
-        volume(1.0)
+        volume = 1.0
         @bus = @player.bus
 
         @queue = Queue.new
@@ -35,8 +35,8 @@ class Pipeline
                                 break
                             when Gst::MessageType::ERROR
                                 error, debug = message.parse_error
-                                STDOUT.puts "#{@slug}|Debugging info: #{debug || 'none'}"
-                                STDOUT.puts "#{@slug}|Error: #{error.message}"
+                                STDERR.puts "#{@slug}|Debugging info: #{debug || 'none'}"
+                                STDERR.puts "#{@slug}|Error: #{error.message}"
                                 break
                             end
                         end
@@ -69,7 +69,7 @@ class Pipeline
         @player.stop
     end
 
-    def volume(vol)
+    def volume=(vol)
         @player.set_property("volume", vol)
     end
 
@@ -107,10 +107,18 @@ end
 
 $pipelines = {}
 
+def exist?(channel)
+    $pipelines.member?(channel)
+end
+
+def exist_or_gen?(channel)
+    $pipelines[channel] = PipeProcess.new(channel) unless $pipelines.member?(channel)
+    $pipelines.member?(channel)
+end
+
 def play(filename, channel = "default")
     if filename.start_with?("http") or File.exist?(filename) then
-        $pipelines[channel] = PipeProcess.new(channel) unless $pipelines.member?(channel)
-        $pipelines[channel].play(filename)
+        $pipelines[channel].play(filename) if exist_or_gen?(channel)
     else
         STDERR.puts("sys|file not found: #{filename}")
     end
@@ -118,19 +126,18 @@ end
 
 def enq(filename, channel = "default")
     if filename.start_with?("http") or File.exist?(filename) then
-        $pipelines[channel] = PipeProcess.new(channel) unless $pipelines.member?(channel)
-        $pipelines[channel].enq(filename)
+        $pipelines[channel].enq(filename) if exist_or_gen?(channel)
     else
         STDERR.puts("sys|file not found: #{filename}")
     end
 end
 
 def next(channel = "default")
-    $pipelines[channel].next if $pipelines.member?(channel)
+    $pipelines[channel].next if exist?(channel)
 end
 
 def stop(channel = "default")
-    $pipelines[channel].stop if $pipelines.member?(channel)
+    $pipelines[channel].stop if exist?(channel)
 end
 
 def stop_all
@@ -139,13 +146,13 @@ def stop_all
     end
 end
 
-def volume(vol, channel = "default")
+def set_volume(vol, channel = "default")
     vol = vol.to_f / 100
-    $pipelines[channel].volume(vol) if $pipelines.member?(channel)
+    $pipelines[channel].volume = vol if exist_or_gen?(channel)
 end
 
 def kill(channel = "default")
-    if $pipelines.member?(channel) then
+    if exist?(channel) then
         $pipelines[channel].kill
         $pipelines.delete(channel)
     end
