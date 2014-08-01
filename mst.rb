@@ -170,7 +170,13 @@ while line = gets
     line.chomp!
     break if line.strip == "quit" or line.strip == "q"
     next if line.empty?
-    cmds = line.split
+    cmds = line.scan(/(".+?"|\S+)/).map do |c|
+        if c[0] =~ /".+"/ then
+            c[0][1..-2]
+        else
+            c[0]
+        end
+    end
     begin
         send(cmds[0], *(cmds.slice(1..-1)))
     rescue NoMethodError => e
