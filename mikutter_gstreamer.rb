@@ -84,6 +84,11 @@ Plugin.create(:mikutter_gstreamer) do
         mst.set_volume(volume, channel)
     end
 
+    filter_gst_mixer do |channels|
+        channels << :sound
+        [channels]
+    end
+
     at_exit {
         mst.quit
     }
