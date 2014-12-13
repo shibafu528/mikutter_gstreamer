@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 require 'gst'
-require_relative 'gstfix'
 
 # MStreamer is GStreamer wrapper for mikutter.
 # Of course, "M" is abbr for "Miku".
